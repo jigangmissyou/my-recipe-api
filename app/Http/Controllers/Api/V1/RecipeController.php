@@ -81,7 +81,7 @@ class RecipeController extends Controller
 
                 return response()->json($recipe, 201);
             });
-        } catch (QueryException $e) {
+        } catch (QueryException $e) {            
             // Handle database query exceptions
             return response()->json(['error' => 'Failed to save recipe due to a database error.'], 500);
         } catch (\Exception $e) {
