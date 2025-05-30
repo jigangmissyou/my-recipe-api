@@ -20,5 +20,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/user/profile', [UserController::class, 'profile']);
         // Update user profile
         Route::put('/user/profile', [UserController::class, 'updateProfile']);
+        // upload recipe image
+        Route::post('/recipes/{recipe}/image', [RecipeController::class, 'uploadImage']);
+        // upload temporary image
+        Route::post('/upload', [RecipeController::class, 'uploadTemporaryImage']);
     });
+
+    // Public routes
+    Route::get('/recipes', [RecipeController::class, 'index']);
+    Route::get('/recipes/{recipe}', [RecipeController::class, 'show']);
 });
