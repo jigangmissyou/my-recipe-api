@@ -24,6 +24,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/recipes/{recipe}/image', [RecipeController::class, 'uploadImage']);
         // upload temporary image
         Route::post('/upload', [RecipeController::class, 'uploadTemporaryImage']);
+        Route::get('/recipes/my', [RecipeController::class, 'myRecipes']);
     });
 
     // Public routes

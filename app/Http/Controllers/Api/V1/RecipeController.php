@@ -266,4 +266,68 @@ class RecipeController extends Controller
 
         return response()->json($recipe);
     }
+
+    /**
+     * Get the authenticated user's recipes.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function myRecipes(Request $request): JsonResponse
+    {
+        // Validate request parameters
+        $validator = Validator::make($request->all(), [
+            'category_id' => 'nullable|exists:recipe_categories,id',
+            'search' => 'nullable|string|max:255',
+            'tags' => 'nullable|array',
+            'tags.*' => 'string|max:255',
+            'difficulty' => 'nullable|string|max:50',
+            'sort_by' => 'nullable|string|in:created_at,views,name',
+            'sort_direction' => 'nullable|string|in:asc,desc',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $query = $request->user()->recipes()
+            ->with(['category:id,name', 'tags:id,name'])
+            ->withCount(['ingredients', 'steps']);
+
+        // Apply filters
+        if ($request->has('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->has('tags')) {
+            $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
+            $query->whereHas('tags', function($q) use ($tags) {
+                $q->whereIn('name', $tags);
+            });
+        }
+
+        if ($request->has('difficulty')) {
+            $query->where('difficulty', $request->difficulty);
+        }
+
+        // Apply sorting
+        $sortField = $request->input('sort_by', 'created_at');
+        $sortDirection = $request->input('sort_direction', 'desc');
+        $query->orderBy($sortField, $sortDirection);
+
+        // Get paginated results
+        $perPage = $request->input('per_page', 10);
+        $recipes = $query->paginate($perPage);
+
+        return response()->json($recipes);
+    }
 }
