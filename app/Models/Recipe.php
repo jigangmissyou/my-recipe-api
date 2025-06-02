@@ -68,6 +68,25 @@ class Recipe extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(RecipeTag::class, 'recipe_tag_relations', 'recipe_id', 'tag_id');
+        return $this->belongsToMany(RecipeTag::class, 'recipe_tag');
+    }
+
+    /**
+     * Get the comments for the recipe.
+     */
+    public function comments()
+    {
+        return $this->hasMany(RecipeComment::class)
+            ->whereNull('parent_id')
+            ->with(['user:id,nickname,avatar', 'replies'])
+            ->latest();
+    }
+
+    /**
+     * Get the average rating for the recipe.
+     */
+    public function getAverageRatingAttribute()
+    {
+        return $this->comments()->whereNotNull('rating')->avg('rating');
     }
 }

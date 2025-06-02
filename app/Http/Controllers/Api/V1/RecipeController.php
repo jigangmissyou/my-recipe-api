@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Database\QueryException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Illuminate\Support\Facades\Storage;
+use App\Models\RecipeComment;
 
 class RecipeController extends Controller
 {
@@ -329,5 +330,116 @@ class RecipeController extends Controller
         $recipes = $query->paginate($perPage);
 
         return response()->json($recipes);
+    }
+
+    /**
+     * Get comments for a recipe.
+     *
+     * @param  \App\Models\Recipe  $recipe
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getComments(Recipe $recipe): JsonResponse
+    {
+        $comments = $recipe->comments()
+            ->with(['user:id,nickname,avatar', 'replies.user:id,nickname,avatar'])
+            ->latest()
+            ->paginate(10);
+
+        return response()->json($comments);
+    }
+
+    /**
+     * Add a comment to a recipe.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Recipe  $recipe
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function addComment(Request $request, Recipe $recipe): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'content' => 'required|string|max:1000',
+            'parent_id' => 'nullable|exists:recipe_comments,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // 如果是回复，确保父评论属于同一个菜谱
+        if ($request->has('parent_id')) {
+            $parentComment = RecipeComment::findOrFail($request->parent_id);
+            if ($parentComment->recipe_id !== $recipe->id) {
+                return response()->json(['error' => 'Invalid parent comment'], 422);
+            }
+        }
+
+        $comment = $recipe->comments()->create([
+            'user_id' => $request->user()->id,
+            'parent_id' => $request->parent_id,
+            'content' => $request->content,
+        ]);
+
+        $comment->load(['user:id,nickname,avatar', 'parent.user:id,nickname,avatar']);
+
+        return response()->json($comment, 201);
+    }
+
+    /**
+     * Update a comment.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Recipe  $recipe
+     * @param  int  $commentId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateComment(Request $request, Recipe $recipe, int $commentId): JsonResponse
+    {
+        $comment = $recipe->comments()->findOrFail($commentId);
+
+        // Check if the user owns the comment
+        if ($comment->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'content' => 'required|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $comment->update([
+            'content' => $request->content,
+        ]);
+
+        $comment->load(['user:id,nickname,avatar', 'parent.user:id,nickname,avatar']);
+
+        return response()->json($comment);
+    }
+
+    /**
+     * Delete a comment.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Recipe  $recipe
+     * @param  int  $commentId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function deleteComment(Request $request, Recipe $recipe, int $commentId): JsonResponse
+    {
+        $comment = $recipe->comments()->findOrFail($commentId);
+
+        // Check if the user owns the comment
+        if ($comment->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // 删除评论及其所有回复
+        $comment->replies()->delete();
+        $comment->delete();
+
+        return response()->json(['message' => 'Comment deleted successfully']);
     }
 }
