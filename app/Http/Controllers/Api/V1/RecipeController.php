@@ -357,30 +357,16 @@ class RecipeController extends Controller
      */
     public function addComment(Request $request, Recipe $recipe): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        $validated = $request->validate([
             'content' => 'required|string|max:1000',
             'parent_id' => 'nullable|exists:recipe_comments,id',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // 如果是回复，确保父评论属于同一个菜谱
-        if ($request->has('parent_id')) {
-            $parentComment = RecipeComment::findOrFail($request->parent_id);
-            if ($parentComment->recipe_id !== $recipe->id) {
-                return response()->json(['error' => 'Invalid parent comment'], 422);
-            }
-        }
-
         $comment = $recipe->comments()->create([
             'user_id' => $request->user()->id,
-            'parent_id' => $request->parent_id,
-            'content' => $request->content,
+            'content' => $validated['content'],
+            'parent_id' => $validated['parent_id'] ?? null,
         ]);
-
-        $comment->load(['user:id,nickname,avatar', 'parent.user:id,nickname,avatar']);
 
         return response()->json($comment, 201);
     }
@@ -429,17 +415,39 @@ class RecipeController extends Controller
      */
     public function deleteComment(Request $request, Recipe $recipe, int $commentId): JsonResponse
     {
-        $comment = $recipe->comments()->findOrFail($commentId);
+        try {
+            $comment = RecipeComment::where('id', $commentId)
+                ->where('recipe_id', $recipe->id)
+                ->where('user_id', $request->user()->id)
+                ->firstOrFail();
 
-        // Check if the user owns the comment
-        if ($comment->user_id !== $request->user()->id) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+            $comment->delete();
+
+            return response()->json([
+                'message' => 'Comment deleted successfully',
+                'deleted_type' => $comment->parent_id ? 'reply' : 'main_comment'
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'error' => 'Comment not found',
+                'message' => 'The comment you are trying to delete does not exist or does not belong to you.'
+            ], 404);
         }
+    }
 
-        // 删除评论及其所有回复
-        $comment->replies()->delete();
-        $comment->delete();
+    /**
+     * Get the authenticated user's comments.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function myComments(Request $request): JsonResponse
+    {
+        $comments = $request->user()->comments()
+            ->with(['recipe:id,name,slug', 'parent.recipe:id,name,slug'])
+            ->latest()
+            ->paginate(10);
 
-        return response()->json(['message' => 'Comment deleted successfully']);
+        return response()->json($comments);
     }
 }

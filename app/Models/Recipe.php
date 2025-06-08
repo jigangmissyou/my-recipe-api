@@ -68,7 +68,7 @@ class Recipe extends Model
 
     public function tags()
     {
-        return $this->belongsToMany(RecipeTag::class, 'recipe_tag');
+        return $this->belongsToMany(RecipeTag::class, 'recipe_tag_relations', 'recipe_id', 'tag_id');
     }
 
     /**

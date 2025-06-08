@@ -25,13 +25,15 @@ Route::prefix('v1')->group(function () {
         // upload temporary image
         Route::post('/upload', [RecipeController::class, 'uploadTemporaryImage']);
         Route::get('/recipes/my', [RecipeController::class, 'myRecipes']);
-        Route::get('/recipes/{recipe}/comments', [RecipeController::class, 'getComments']);
         Route::post('/recipes/{recipe}/comments', [RecipeController::class, 'addComment']);
         Route::put('/recipes/{recipe}/comments/{commentId}', [RecipeController::class, 'updateComment']);
         Route::delete('/recipes/{recipe}/comments/{commentId}', [RecipeController::class, 'deleteComment']);
+        Route::get('/my-comments', [RecipeController::class, 'myComments']);
     });
 
     // Public routes
     Route::get('/recipes', [RecipeController::class, 'index']);
     Route::get('/recipes/{recipe}', [RecipeController::class, 'show']);
+    Route::get('/recipes/{recipe}/comments', [RecipeController::class, 'getComments']);
+
 });

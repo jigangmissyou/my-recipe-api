@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -24,6 +25,31 @@ return new class extends Migration
             $table->index('user_id');
             $table->index('parent_id');
         });
+
+        // Insert fake comments for recipe ID 20
+        DB::table('recipe_comments')->insert([
+            [
+                'recipe_id' => 20,
+                'user_id' => 1,
+                'content' => 'This is a great recipe!',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'recipe_id' => 20,
+                'user_id' => 2,
+                'content' => 'I love the ingredients used here.',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'recipe_id' => 20,
+                'user_id' => 3,
+                'content' => 'Can\'t wait to try this!',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
     }
 
     /**
