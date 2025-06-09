@@ -192,6 +192,7 @@ class RecipeController extends Controller
         // Validate request parameters
         $validator = Validator::make($request->all(), [
             'category_id' => 'nullable|exists:recipe_categories,id',
+            'tag_id' => 'nullable|exists:recipe_tags,id',
             'search' => 'nullable|string|max:255',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:255',
@@ -206,11 +207,17 @@ class RecipeController extends Controller
         }
 
         $query = Recipe::with(['user', 'category', 'tags'])
-            ->withCount(['ingredients', 'steps']);
+            ->withCount(['ingredients', 'steps', 'favorites']);
 
         // Apply filters
         if ($request->has('category_id')) {
             $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->has('tag_id')) {
+            $query->whereHas('tags', function($q) use ($request) {
+                $q->where('recipe_tags.id', $request->tag_id);
+            });
         }
 
         if ($request->has('search')) {
@@ -260,10 +267,22 @@ class RecipeController extends Controller
                 $query->orderBy('step_order');
             },
             'tags:id,name'
+        ])->loadCount('favorites');
+
+        // 使用 auth()->user() 并添加调试信息
+        \Log::info('Auth debug', [
+            'auth_user' => auth()->user(),
+            'token' => request()->bearerToken()
         ]);
 
-        // Increment view count
-        // $recipe->increment('views');
+        if ($user = auth()->user()) {
+            $recipe->is_favorited = DB::table('recipe_favorites')
+                ->where('recipe_id', $recipe->id)
+                ->where('user_id', $user->id)
+                ->exists();
+        } else {
+            $recipe->is_favorited = false;
+        }
 
         return response()->json($recipe);
     }
@@ -449,5 +468,85 @@ class RecipeController extends Controller
             ->paginate(10);
 
         return response()->json($comments);
+    }
+
+    /**
+     * Toggle favorite status for a recipe.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Recipe  $recipe
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function toggleFavorite(Request $request, Recipe $recipe): JsonResponse
+    {
+        $user = $request->user();
+        
+        // 使用 DB 查询直接检查是否存在收藏记录
+        $exists = DB::table('recipe_favorites')
+            ->where('recipe_id', $recipe->id)
+            ->where('user_id', $user->id)
+            ->exists();
+        
+        if ($exists) {
+            // 如果存在，则取消收藏
+            DB::table('recipe_favorites')
+                ->where('recipe_id', $recipe->id)
+                ->where('user_id', $user->id)
+                ->delete();
+            $message = 'Recipe unfavorited successfully';
+            $isFavorited = false;
+        } else {
+            // 如果不存在，则添加收藏
+            DB::table('recipe_favorites')->insert([
+                'recipe_id' => $recipe->id,
+                'user_id' => $user->id,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            $message = 'Recipe favorited successfully';
+            $isFavorited = true;
+        }
+        
+        // 获取最新的收藏数量
+        $favoritesCount = DB::table('recipe_favorites')
+            ->where('recipe_id', $recipe->id)
+            ->count();
+        
+        return response()->json([
+            'message' => $message,
+            'is_favorited' => $isFavorited,
+            'favorites_count' => $favoritesCount
+        ]);
+    }
+
+    /**
+     * Get the authenticated user's favorite recipes.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function favoriteRecipes(Request $request): JsonResponse
+    {
+        $recipes = $request->user()->favoriteRecipes()
+            ->with(['user:id,nickname,avatar', 'category:id,name', 'tags:id,name'])
+            ->withCount(['ingredients', 'steps'])
+            ->latest()
+            ->paginate(10);
+        
+        return response()->json($recipes);
+    }
+
+    /**
+     * Get all available recipe tags.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getTags(): JsonResponse
+    {
+        $tags = RecipeTag::select('id', 'name')
+            ->orderBy('name')
+            ->get();
+        
+        return response()->json($tags);
     }
 }

@@ -29,11 +29,14 @@ Route::prefix('v1')->group(function () {
         Route::put('/recipes/{recipe}/comments/{commentId}', [RecipeController::class, 'updateComment']);
         Route::delete('/recipes/{recipe}/comments/{commentId}', [RecipeController::class, 'deleteComment']);
         Route::get('/my-comments', [RecipeController::class, 'myComments']);
+        Route::post('/recipes/{recipe}/favorite', [RecipeController::class, 'toggleFavorite']);
+        Route::get('/recipes/favorites', [RecipeController::class, 'favoriteRecipes']);
     });
 
-    // Public routes
+    // Public routes with optional authentication
     Route::get('/recipes', [RecipeController::class, 'index']);
-    Route::get('/recipes/{recipe}', [RecipeController::class, 'show']);
+    Route::get('/recipes/{recipe}', [RecipeController::class, 'show'])->middleware('optional.auth');
     Route::get('/recipes/{recipe}/comments', [RecipeController::class, 'getComments']);
+    Route::get('/recipe-tags', [RecipeController::class, 'getTags']);
 
 });

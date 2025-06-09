@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class Recipe extends Model
 {
@@ -88,5 +89,25 @@ class Recipe extends Model
     public function getAverageRatingAttribute()
     {
         return $this->comments()->whereNotNull('rating')->avg('rating');
+    }
+
+    /**
+     * Get the users who favorited this recipe.
+     */
+    public function favorites()
+    {
+        return $this->belongsToMany(User::class, 'recipe_favorites')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if the recipe is favorited by a user.
+     */
+    public function isFavoritedBy(User $user)
+    {
+        return DB::table('recipe_favorites')
+            ->where('recipe_id', $this->id)
+            ->where('user_id', $user->id)
+            ->exists();
     }
 }
