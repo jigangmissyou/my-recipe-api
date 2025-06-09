@@ -210,17 +210,17 @@ class RecipeController extends Controller
             ->withCount(['ingredients', 'steps', 'favorites']);
 
         // Apply filters
-        if ($request->has('category_id')) {
+        if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
-        if ($request->has('tag_id')) {
+        if ($request->filled('tag_id')) {
             $query->whereHas('tags', function($q) use ($request) {
                 $q->where('recipe_tags.id', $request->tag_id);
             });
         }
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
@@ -228,20 +228,27 @@ class RecipeController extends Controller
             });
         }
 
-        if ($request->has('tags')) {
+        if ($request->filled('tags')) {
             $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
             $query->whereHas('tags', function($q) use ($tags) {
                 $q->whereIn('name', $tags);
             });
         }
 
-        if ($request->has('difficulty')) {
+        if ($request->filled('difficulty')) {
             $query->where('difficulty', $request->difficulty);
         }
 
-        // Apply sorting
-        $sortField = $request->input('sort_by', 'created_at');
-        $sortDirection = $request->input('sort_direction', 'desc');
+        // Apply sorting with default values
+        $sortField = $request->filled('sort_by') ? $request->sort_by : 'created_at';
+        $sortDirection = $request->filled('sort_direction') ? $request->sort_direction : 'desc';
+        
+        // 确保排序字段是有效的
+        $allowedSortFields = ['created_at', 'views', 'name'];
+        if (!in_array($sortField, $allowedSortFields)) {
+            $sortField = 'created_at';
+        }
+        
         $query->orderBy($sortField, $sortDirection);
 
         // Get paginated results
@@ -475,14 +482,12 @@ class RecipeController extends Controller
     {
         $user = $request->user();
         
-        // 使用 DB 查询直接检查是否存在收藏记录
         $exists = DB::table('recipe_favorites')
             ->where('recipe_id', $recipe->id)
             ->where('user_id', $user->id)
             ->exists();
         
         if ($exists) {
-            // 如果存在，则取消收藏
             DB::table('recipe_favorites')
                 ->where('recipe_id', $recipe->id)
                 ->where('user_id', $user->id)
@@ -490,7 +495,6 @@ class RecipeController extends Controller
             $message = 'Recipe unfavorited successfully';
             $isFavorited = false;
         } else {
-            // 如果不存在，则添加收藏
             DB::table('recipe_favorites')->insert([
                 'recipe_id' => $recipe->id,
                 'user_id' => $user->id,
@@ -501,7 +505,6 @@ class RecipeController extends Controller
             $isFavorited = true;
         }
         
-        // 获取最新的收藏数量
         $favoritesCount = DB::table('recipe_favorites')
             ->where('recipe_id', $recipe->id)
             ->count();
