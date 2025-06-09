@@ -269,12 +269,6 @@ class RecipeController extends Controller
             'tags:id,name'
         ])->loadCount('favorites');
 
-        // 使用 auth()->user() 并添加调试信息
-        \Log::info('Auth debug', [
-            'auth_user' => auth()->user(),
-            'token' => request()->bearerToken()
-        ]);
-
         if ($user = auth()->user()) {
             $recipe->is_favorited = DB::table('recipe_favorites')
                 ->where('recipe_id', $recipe->id)
@@ -527,12 +521,23 @@ class RecipeController extends Controller
      */
     public function favoriteRecipes(Request $request): JsonResponse
     {
-        $recipes = $request->user()->favoriteRecipes()
-            ->with(['user:id,nickname,avatar', 'category:id,name', 'tags:id,name'])
-            ->withCount(['ingredients', 'steps'])
-            ->latest()
-            ->paginate(10);
-        
+        // Validate request parameters
+        $validator = Validator::make($request->all(), [
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $query = $request->user()->favoriteRecipes()
+            ->with(['user', 'category', 'tags'])
+            ->withCount(['ingredients', 'steps', 'favorites']);
+
+        // Get paginated results
+        $perPage = $request->input('per_page', 12);
+        $recipes = $query->latest()->paginate($perPage);
+
         return response()->json($recipes);
     }
 
