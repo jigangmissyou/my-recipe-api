@@ -1,7 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,26 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("
-            CREATE TABLE IF NOT EXISTS recipes (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                user_id BIGINT UNSIGNED NOT NULL,
-                category_id BIGINT UNSIGNED NULL,
-                name VARCHAR(255) NOT NULL,
-                description TEXT NULL,
-                difficulty VARCHAR(50) NULL,
-                prep_time VARCHAR(50) NULL,
-                cook_time VARCHAR(50) NULL,
-                cover_image VARCHAR(255) NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id),
-                FOREIGN KEY (category_id) REFERENCES recipe_categories(id),
-                INDEX (user_id),
-                INDEX (category_id),
-                FULLTEXT (name, description)
-            );
-        ");
+        Schema::create('recipes', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('category_id')->constrained('recipe_categories')->onDelete('cascade');
+            $table->string('name');
+            $table->text('description');
+            $table->enum('difficulty', ['Easy', 'Medium', 'Hard']);
+            $table->integer('prep_time');
+            $table->integer('cook_time');
+            $table->string('cover_image')->nullable();
+            $table->string('slug')->unique();
+            $table->timestamps();
+        });
     }
 
     /**
@@ -38,6 +31,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        // 按照依赖关系的反序删除表
+        Schema::dropIfExists('recipe_comments');
+        Schema::dropIfExists('recipe_favorites');
+        Schema::dropIfExists('recipe_tag_relations');
+        Schema::dropIfExists('recipe_steps');
+        Schema::dropIfExists('recipe_ingredients');
         Schema::dropIfExists('recipes');
     }
 };
