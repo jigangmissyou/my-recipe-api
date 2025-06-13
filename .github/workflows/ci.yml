@@ -78,7 +78,7 @@ jobs:
       run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
     - name: Run PHP_CodeSniffer
-      run: vendor/bin/phpcs --standard=PSR12 app tests
+      run: vendor/bin/phpcs --standard=.phpcs.xml app tests
 
     - name: Run PHPStan
       run: vendor/bin/phpstan analyse app tests --level=5
