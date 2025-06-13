@@ -14,13 +14,18 @@
     <exclude-pattern>*/bootstrap/cache/*</exclude-pattern>
 
     <rule ref="PSR12">
-        <!-- 允许测试方法使用下划线命名 -->
+        <!-- Allow test methods to use underscores -->
         <exclude name="PSR1.Methods.CamelCapsMethodName"/>
         
-        <!-- 允许行长度超过 120 字符 -->
+        <!-- Allow line length to exceed 120 characters -->
         <exclude name="Generic.Files.LineLength"/>
         
-        <!-- 允许文件末尾的 PHP 结束标签 -->
+        <!-- Allow PHP end tags at the end of files -->
         <exclude name="PSR2.Files.EndFileNewline"/>
+    </rule>
+
+    <!-- Allow test methods to use underscores -->
+    <rule ref="PSR1.Methods.CamelCapsMethodName">
+        <exclude-pattern>*/tests/*</exclude-pattern>
     </rule>
 </ruleset>
