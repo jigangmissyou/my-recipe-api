@@ -184,6 +184,35 @@ class RecipeControllerTest extends TestCase
     }
 
     /** @test */
+    public function it_validates_required_fields_when_creating_recipe()
+    {
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/recipes', []);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['name', 'category_id', 'description', 'difficulty', 'prep_time', 'cook_time']);
+    }
+
+    /** @test */
+    public function it_validates_difficulty_enum_when_creating_recipe()
+    {
+        $recipeData = [
+            'category_id' => $this->category->id,
+            'name' => 'Test Recipe',
+            'description' => 'Test Description',
+            'difficulty' => 'Invalid',
+            'prep_time' => '10',
+            'cook_time' => '20'
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->postJson('/api/v1/recipes', $recipeData);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['difficulty']);
+    }
+
+    /** @test */
     public function it_can_toggle_favorite_recipe()
     {
         $recipe = Recipe::factory()->create([
@@ -249,7 +278,6 @@ class RecipeControllerTest extends TestCase
             'user_id' => $this->user->id,
             'category_id' => $this->category->id
         ]);
-        $recipe->tags()->attach($this->tags[0]->id);
 
         $response = $this->getJson("/api/v1/recipes/{$recipe->id}");
 
@@ -260,11 +288,270 @@ class RecipeControllerTest extends TestCase
                 'description',
                 'user',
                 'category',
+                'tags',
                 'ingredients',
                 'steps',
-                'tags',
                 'favorites_count',
-                'is_favorited'
+                'comments_count'
             ]);
+    }
+
+    /** @test */
+    public function it_returns_404_for_nonexistent_recipe()
+    {
+        $response = $this->getJson('/api/v1/recipes/99999');
+
+        $response->assertStatus(404);
+    }
+
+    /** @test */
+    public function it_can_add_comment_to_recipe()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        $commentData = [
+            'content' => 'This is a test comment'
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/v1/recipes/{$recipe->id}/comments", $commentData);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'id',
+                'content',
+                'user',
+                'created_at'
+            ]);
+
+        $this->assertDatabaseHas('recipe_comments', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $this->user->id,
+            'content' => 'This is a test comment'
+        ]);
+    }
+
+    /** @test */
+    public function it_can_reply_to_comment()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        // 创建父评论
+        $parentComment = $recipe->comments()->create([
+            'user_id' => $this->user->id,
+            'content' => 'Parent comment'
+        ]);
+
+        $replyData = [
+            'content' => 'This is a reply',
+            'parent_id' => $parentComment->id
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->postJson("/api/v1/recipes/{$recipe->id}/comments", $replyData);
+
+        $response->assertStatus(201)
+            ->assertJsonStructure([
+                'id',
+                'content',
+                'user',
+                'parent_id',
+                'created_at'
+            ]);
+
+        $this->assertDatabaseHas('recipe_comments', [
+            'recipe_id' => $recipe->id,
+            'user_id' => $this->user->id,
+            'content' => 'This is a reply',
+            'parent_id' => $parentComment->id
+        ]);
+    }
+
+    /** @test */
+    public function it_can_list_recipe_comments()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        // 创建一些评论
+        $recipe->comments()->createMany([
+            [
+                'user_id' => $this->user->id,
+                'content' => 'First comment'
+            ],
+            [
+                'user_id' => $this->user->id,
+                'content' => 'Second comment'
+            ]
+        ]);
+
+        $response = $this->getJson("/api/v1/recipes/{$recipe->id}/comments");
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'content',
+                        'user',
+                        'created_at'
+                    ]
+                ]
+            ])
+            ->assertJsonCount(2, 'data');
+    }
+
+    /** @test */
+    public function it_can_sort_recipes_by_created_at()
+    {
+        // 创建菜谱，确保创建时间不同
+        $recipe1 = Recipe::factory()->create([
+            'user_id' => $this->user->id,
+            'created_at' => now()->subDays(2)
+        ]);
+
+        $recipe2 = Recipe::factory()->create([
+            'user_id' => $this->user->id,
+            'created_at' => now()->subDay()
+        ]);
+
+        $recipe3 = Recipe::factory()->create([
+            'user_id' => $this->user->id,
+            'created_at' => now()
+        ]);
+
+        // 测试升序排序
+        $response = $this->getJson('/api/v1/recipes?sort_by=created_at&sort_direction=asc');
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.id', $recipe1->id)
+            ->assertJsonPath('data.1.id', $recipe2->id)
+            ->assertJsonPath('data.2.id', $recipe3->id);
+
+        // 测试降序排序
+        $response = $this->getJson('/api/v1/recipes?sort_by=created_at&sort_direction=desc');
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.id', $recipe3->id)
+            ->assertJsonPath('data.1.id', $recipe2->id)
+            ->assertJsonPath('data.2.id', $recipe1->id);
+    }
+
+    /** @test */
+    public function it_can_paginate_recipes()
+    {
+        // 创建15个菜谱
+        Recipe::factory()
+            ->count(15)
+            ->create([
+                'user_id' => $this->user->id
+            ]);
+
+        // 测试第一页
+        $response = $this->getJson('/api/v1/recipes?page=1&per_page=10');
+        $response->assertStatus(200)
+            ->assertJsonCount(10, 'data')
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('per_page', 10)
+            ->assertJsonPath('total', 15);
+
+        // 测试第二页
+        $response = $this->getJson('/api/v1/recipes?page=2&per_page=10');
+        $response->assertStatus(200)
+            ->assertJsonCount(5, 'data')
+            ->assertJsonPath('current_page', 2);
+    }
+
+    /** @test */
+    public function it_requires_authentication_for_protected_actions()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        // 测试创建菜谱
+        $response = $this->postJson('/api/v1/recipes', []);
+        $response->assertStatus(401);
+
+        // 测试收藏菜谱
+        $response = $this->postJson("/api/v1/recipes/{$recipe->id}/favorite");
+        $response->assertStatus(401);
+
+        // 测试添加评论
+        $response = $this->postJson("/api/v1/recipes/{$recipe->id}/comments", [
+            'content' => 'Test comment'
+        ]);
+        $response->assertStatus(401);
+    }
+
+    /** @test */
+    public function it_can_update_recipe()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id,
+            'name' => 'Original Name'
+        ]);
+
+        $updateData = [
+            'name' => 'Updated Name',
+            'description' => 'Updated Description',
+            'difficulty' => 'Medium'
+        ];
+
+        $response = $this->actingAs($this->user)
+            ->putJson("/api/v1/recipes/{$recipe->id}", $updateData);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'name' => 'Updated Name',
+                'description' => 'Updated Description',
+                'difficulty' => 'Medium'
+            ]);
+
+        $this->assertDatabaseHas('recipes', [
+            'id' => $recipe->id,
+            'name' => 'Updated Name'
+        ]);
+    }
+
+    /** @test */
+    public function it_can_delete_recipe()
+    {
+        $recipe = Recipe::factory()->create([
+            'user_id' => $this->user->id
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/v1/recipes/{$recipe->id}");
+
+        $response->assertStatus(204);
+
+        $this->assertDatabaseMissing('recipes', [
+            'id' => $recipe->id
+        ]);
+    }
+
+    /** @test */
+    public function it_cannot_update_or_delete_other_users_recipe()
+    {
+        $otherUser = User::factory()->create();
+        $recipe = Recipe::factory()->create([
+            'user_id' => $otherUser->id
+        ]);
+
+        // 测试更新
+        $response = $this->actingAs($this->user)
+            ->putJson("/api/v1/recipes/{$recipe->id}", [
+                'name' => 'Updated Name'
+            ]);
+        $response->assertStatus(403);
+
+        // 测试删除
+        $response = $this->actingAs($this->user)
+            ->deleteJson("/api/v1/recipes/{$recipe->id}");
+        $response->assertStatus(403);
     }
 }

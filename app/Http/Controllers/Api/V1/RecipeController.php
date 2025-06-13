@@ -25,12 +25,12 @@ class RecipeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'category_id' => 'nullable|exists:recipe_categories,id',
+            'category_id' => 'required|exists:recipe_categories,id',
             'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'difficulty' => 'nullable|string|max:50',
-            'prep_time' => 'nullable|string|max:50',
-            'cook_time' => 'nullable|string|max:50',
+            'description' => 'required|string',
+            'difficulty' => 'required|string|in:Easy,Medium,Hard',
+            'prep_time' => 'required|string|max:50',
+            'cook_time' => 'required|string|max:50',
             'cover_image' => 'nullable|string|max:255',
             'ingredients' => 'required|array',
             'ingredients.*.name' => 'required|string|max:255',
@@ -41,7 +41,7 @@ class RecipeController extends Controller
             'steps.*.description' => 'required|string',
             'steps.*.image_url' => 'nullable|string|max:255',
             'tags' => 'nullable|array',
-            'tags.*' => 'string|max:255|exists:recipe_tags,name', // Validate against existing tag names
+            'tags.*' => 'string|max:255|exists:recipe_tags,name',
         ]);
 
         if ($validator->fails()) {
@@ -274,7 +274,7 @@ class RecipeController extends Controller
                 $query->orderBy('step_order');
             },
             'tags:id,name'
-        ])->loadCount('favorites');
+        ])->loadCount(['favorites', 'comments']);
 
         if ($user = auth()->user()) {
             $recipe->is_favorited = DB::table('recipe_favorites')
@@ -387,6 +387,8 @@ class RecipeController extends Controller
             'content' => $validated['content'],
             'parent_id' => $validated['parent_id'] ?? null,
         ]);
+
+        $comment->load('user:id,nickname,avatar');
 
         return response()->json($comment, 201);
     }
@@ -556,5 +558,52 @@ class RecipeController extends Controller
             ->get();
         
         return response()->json($tags);
+    }
+
+    public function update(Request $request, Recipe $recipe): JsonResponse
+    {
+        // 检查权限
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|required|string',
+            'difficulty' => 'sometimes|required|string|in:Easy,Medium,Hard',
+            'prep_time' => 'sometimes|required|string|max:50',
+            'cook_time' => 'sometimes|required|string|max:50',
+            'category_id' => 'sometimes|required|exists:recipe_categories,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $recipe->update($request->only([
+            'name',
+            'description',
+            'difficulty',
+            'prep_time',
+            'cook_time',
+            'category_id',
+        ]));
+
+        $recipe->load(['user:id,nickname,avatar', 'category:id,name', 'tags:id,name'])
+            ->loadCount(['ingredients', 'steps', 'favorites', 'comments']);
+
+        return response()->json($recipe);
+    }
+
+    public function destroy(Request $request, Recipe $recipe): JsonResponse
+    {
+        // 检查权限
+        if ($recipe->user_id !== $request->user()->id) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        $recipe->delete();
+
+        return response()->json(null, 204);
     }
 }

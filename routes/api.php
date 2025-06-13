@@ -15,6 +15,8 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/recipes', [RecipeController::class, 'store']);
+        Route::put('/recipes/{recipe}', [RecipeController::class, 'update']);
+        Route::delete('/recipes/{recipe}', [RecipeController::class, 'destroy']);
         Route::post('/auth/google/link', [GoogleAuthController::class, 'linkGoogleAccount']); // 关联 Google 账号
         // Get user profile
         Route::get('/user/profile', [UserController::class, 'profile']);
