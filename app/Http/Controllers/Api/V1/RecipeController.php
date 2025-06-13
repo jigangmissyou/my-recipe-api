@@ -243,7 +243,7 @@ class RecipeController extends Controller
         $sortField = $request->filled('sort_by') ? $request->sort_by : 'created_at';
         $sortDirection = $request->filled('sort_direction') ? $request->sort_direction : 'desc';
         
-        // 确保排序字段是有效的
+        // Make sure the sort field is valid
         $allowedSortFields = ['created_at', 'views', 'name'];
         if (!in_array($sortField, $allowedSortFields)) {
             $sortField = 'created_at';
