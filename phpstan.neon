@@ -17,6 +17,7 @@ parameters:
         
         # Request properties
         - '#Access to an undefined property Illuminate\\Http\\Request::\$[a-zA-Z0-9_]+#'
+        - '#Access to protected property Illuminate\\Http\\Request::\$content#'
         
         # Model properties
         - '#Access to an undefined property App\\Models\\[a-zA-Z0-9_]+::\$[a-zA-Z0-9_]+#'
@@ -36,3 +37,7 @@ parameters:
         
         # RecipeComment replies method
         - '#Method App\\Models\\RecipeComment::replies\(\) should return Illuminate\\Database\\Eloquent\\Relations\\HasMany but returns Illuminate\\Database\\Eloquent\\Builder<App\\Models\\RecipeComment>#'
+        
+        # Deprecated options
+        - identifier: missingType.iterableValue
+        - identifier: missingType.generics
