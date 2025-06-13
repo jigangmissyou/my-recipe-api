@@ -51,4 +51,4 @@ class RecipeComment extends Model
     {
         return $this->hasMany(RecipeComment::class, 'parent_id')->with('user:id,nickname,avatar')->latest();
     }
-} 
+}

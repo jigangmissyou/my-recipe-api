@@ -12,7 +12,8 @@ use Tests\TestCase;
 
 class RecipeControllerTest extends TestCase
 {
-    use RefreshDatabase, WithFaker;
+    use RefreshDatabase;
+    use WithFaker;
 
     protected $user;
     protected $category;
@@ -21,15 +22,15 @@ class RecipeControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         // 创建测试用户
         $this->user = User::factory()->create();
-        
+
         // 创建测试分类
         $this->category = RecipeCategory::create([
             'name' => 'Test Category'
         ]);
-        
+
         // 创建测试标签
         $this->tags = [
             RecipeTag::create(['name' => 'Test Tag 1']),

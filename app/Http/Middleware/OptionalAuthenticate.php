@@ -18,7 +18,7 @@ class OptionalAuthenticate
         if ($request->bearerToken()) {
             Auth::shouldUse('sanctum');
         }
-        
+
         return $next($request);
     }
 }

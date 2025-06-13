@@ -27,24 +27,24 @@ class Recipe extends Model
         parent::boot();
 
         static::creating(function ($recipe) {
-        $recipe->slug = Str::slug($recipe->name);
-        $originalSlug = $recipe->slug;
-        $count = 2;
-        while (static::where('slug', $recipe->slug)->exists()) {
-            $recipe->slug = $originalSlug . '-' . $count;
-            $count++;
-        }
-    });
+            $recipe->slug = Str::slug($recipe->name);
+            $originalSlug = $recipe->slug;
+            $count = 2;
+            while (static::where('slug', $recipe->slug)->exists()) {
+                $recipe->slug = $originalSlug . '-' . $count;
+                $count++;
+            }
+        });
 
-    static::updating(function ($recipe) {
-        $recipe->slug = Str::slug($recipe->name);
-        $originalSlug = $recipe->slug;
-        $count = 2;
-        while (static::where('slug', $recipe->slug)->where('id', '!=', $recipe->id)->exists()) {
-            $recipe->slug = $originalSlug . '-' . $count;
-            $count++;
-        }
-    });
+        static::updating(function ($recipe) {
+            $recipe->slug = Str::slug($recipe->name);
+            $originalSlug = $recipe->slug;
+            $count = 2;
+            while (static::where('slug', $recipe->slug)->where('id', '!=', $recipe->id)->exists()) {
+                $recipe->slug = $originalSlug . '-' . $count;
+                $count++;
+            }
+        });
     }
 
     public function user()

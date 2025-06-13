@@ -21,7 +21,7 @@ class RecipeController extends Controller
             ->with(['category', 'tags'])
             ->withCount(['ingredients', 'steps'])
             ->when($request->input('search'), function ($query, $search) {
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('description', 'like', "%{$search}%");
                 });
@@ -34,7 +34,7 @@ class RecipeController extends Controller
             })
             ->when($request->input('tags'), function ($query, $tags) {
                 $tags = is_array($tags) ? $tags : explode(',', $tags);
-                $query->whereHas('tags', function($q) use ($tags) {
+                $query->whereHas('tags', function ($q) use ($tags) {
                     $q->whereIn('name', $tags);
                 });
             })
@@ -48,4 +48,4 @@ class RecipeController extends Controller
             'filters' => $request->only(['search', 'category_id', 'difficulty', 'sort_by', 'sort_direction']),
         ]);
     }
-} 
+}

@@ -83,7 +83,7 @@ class RecipeController extends Controller
 
                 return response()->json($recipe, 201);
             });
-        } catch (QueryException $e) {            
+        } catch (QueryException $e) {
             // Handle database query exceptions
             return response()->json(['error' => 'Failed to save recipe due to a database error.'], 500);
         } catch (\Exception $e) {
@@ -129,7 +129,7 @@ class RecipeController extends Controller
             } else {
                 // Handle step image upload
                 $step = $recipe->steps()->where('step_order', $request->step_order)->first();
-                
+
                 if (!$step) {
                     return response()->json(['error' => 'Step not found'], 404);
                 }
@@ -171,7 +171,7 @@ class RecipeController extends Controller
 
         try {
             $path = $request->file('image')->store('recipes/temp', 'public');
-            
+
             return response()->json([
                 'message' => 'Image uploaded successfully',
                 'image_url' => Storage::url($path)
@@ -215,14 +215,14 @@ class RecipeController extends Controller
         }
 
         if ($request->filled('tag_id')) {
-            $query->whereHas('tags', function($q) use ($request) {
+            $query->whereHas('tags', function ($q) use ($request) {
                 $q->where('recipe_tags.id', $request->tag_id);
             });
         }
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%");
             });
@@ -230,7 +230,7 @@ class RecipeController extends Controller
 
         if ($request->filled('tags')) {
             $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
-            $query->whereHas('tags', function($q) use ($tags) {
+            $query->whereHas('tags', function ($q) use ($tags) {
                 $q->whereIn('name', $tags);
             });
         }
@@ -242,13 +242,13 @@ class RecipeController extends Controller
         // Apply sorting with default values
         $sortField = $request->filled('sort_by') ? $request->sort_by : 'created_at';
         $sortDirection = $request->filled('sort_direction') ? $request->sort_direction : 'desc';
-        
+
         // Make sure the sort field is valid
         $allowedSortFields = ['created_at', 'views', 'name'];
         if (!in_array($sortField, $allowedSortFields)) {
             $sortField = 'created_at';
         }
-        
+
         $query->orderBy($sortField, $sortDirection);
 
         // Get paginated results
@@ -270,7 +270,7 @@ class RecipeController extends Controller
             'user:id,nickname,avatar',
             'category:id,name',
             'ingredients',
-            'steps' => function($query) {
+            'steps' => function ($query) {
                 $query->orderBy('step_order');
             },
             'tags:id,name'
@@ -323,7 +323,7 @@ class RecipeController extends Controller
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%");
             });
@@ -331,7 +331,7 @@ class RecipeController extends Controller
 
         if ($request->has('tags')) {
             $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
-            $query->whereHas('tags', function($q) use ($tags) {
+            $query->whereHas('tags', function ($q) use ($tags) {
                 $q->whereIn('name', $tags);
             });
         }
@@ -483,12 +483,12 @@ class RecipeController extends Controller
     public function toggleFavorite(Request $request, Recipe $recipe): JsonResponse
     {
         $user = $request->user();
-        
+
         $exists = DB::table('recipe_favorites')
             ->where('recipe_id', $recipe->id)
             ->where('user_id', $user->id)
             ->exists();
-        
+
         if ($exists) {
             DB::table('recipe_favorites')
                 ->where('recipe_id', $recipe->id)
@@ -506,11 +506,11 @@ class RecipeController extends Controller
             $message = 'Recipe favorited successfully';
             $isFavorited = true;
         }
-        
+
         $favoritesCount = DB::table('recipe_favorites')
             ->where('recipe_id', $recipe->id)
             ->count();
-        
+
         return response()->json([
             'message' => $message,
             'is_favorited' => $isFavorited,
@@ -556,7 +556,7 @@ class RecipeController extends Controller
         $tags = RecipeTag::select('id', 'name')
             ->orderBy('name')
             ->get();
-        
+
         return response()->json($tags);
     }
 
