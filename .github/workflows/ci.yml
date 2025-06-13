@@ -37,7 +37,7 @@ jobs:
 
     - name: Install Dependencies
       run: |
-        composer update --no-scripts --no-interaction
+        composer update --no-scripts --no-interaction --with-all-dependencies
         composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
     - name: Generate key
